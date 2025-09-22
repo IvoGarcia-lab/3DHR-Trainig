@@ -1,5 +1,20 @@
+
+@keyframes gradientAnimation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 body {
-  background-color: #111827; /* bg-gray-900 */
+  background: linear-gradient(-45deg, #0c1a3a, #1c2c52, #0c1a3a, #1c2c52);
+  background-size: 400% 400%;
+  animation: gradientAnimation 25s ease infinite;
   color: #f3f4f6; /* text-gray-100 */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   overflow: hidden;

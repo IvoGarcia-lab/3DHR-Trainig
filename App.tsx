@@ -1203,7 +1203,7 @@ const App: React.FC = () => {
     const sceneSettingsNode = nodes.find(n => n.id === sceneSettingsNodeId);
     
     return (
-        <div className="w-screen h-screen bg-gray-900 text-white flex flex-col overflow-hidden">
+        <div className="w-screen h-screen text-white flex flex-col overflow-hidden">
             <Header onOpenInspiration={() => setIsInspirationModalOpen(true)} />
             <main className="flex-grow relative" ref={canvasRef}
                 onMouseDown={handleMouseDown}
