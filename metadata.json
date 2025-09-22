@@ -1,0 +1,5 @@
+{
+  "name": "Gerador de Imagens a Partir de Fluxograma Gemini",
+  "description": "Uma aplicação de fluxograma interativa que permite aos utilizadores carregar imagens como nós, conectá-los e usar a API Gemini (modelo nano-banana) para gerar novas imagens com base nas conexões e instruções.",
+  "requestFramePermissions": []
+}
