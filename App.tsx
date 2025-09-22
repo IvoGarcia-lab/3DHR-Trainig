@@ -758,10 +758,8 @@ const App: React.FC = () => {
         const edgeToDisconnect = edges.find(edge => edge.toNode === toNodeId && edge.toConnector === toConnectorId);
         if (!edgeToDisconnect) return;
 
-        // Fix: Resolve property access errors on 'unknown' by safely extracting event coordinates.
-        // This refactor helps TypeScript correctly infer the type from the event union
-        // by first assigning the relevant object (either the event or a touch point) to a variable.
-        let point: { clientX: number, clientY: number } | undefined;
+        // Fix: Resolve property access errors by safely extracting event coordinates with a more specific type.
+        let point: React.Touch | React.MouseEvent | undefined;
         if ('touches' in e) {
             // Touch event
             if (e.touches.length > 0) {
@@ -1055,8 +1053,15 @@ const App: React.FC = () => {
     const handleTouchMove = (e: React.TouchEvent) => {
         if (draggedNodeId && draggedTouchId !== null) {
             e.preventDefault();
-            // Fix: Explicitly type 't' as React.Touch to resolve property access errors on 'unknown'.
-            const touch = Array.from(e.touches).find((t: React.Touch) => t.identifier === draggedTouchId);
+            // Fix: Replaced array iteration with a for...of loop for more robust type safety.
+            let touch: React.Touch | undefined;
+            for (const t of Array.from(e.touches)) {
+              if (t.identifier === draggedTouchId) {
+                touch = t;
+                break;
+              }
+            }
+            
             if (touch) {
                 const newPos = { x: nodeDragOffset.x + (touch.clientX / zoom), y: nodeDragOffset.y + (touch.clientY / zoom) };
                 updateNode(draggedNodeId, { position: newPos });
@@ -1114,8 +1119,15 @@ const App: React.FC = () => {
         }
 
         if (draggedTouchId !== null) {
-            // Fix: Explicitly type 't' as React.Touch to resolve property access errors on 'unknown'.
-            const touchEnded = Array.from(e.changedTouches).some((t: React.Touch) => t.identifier === draggedTouchId);
+            // Fix: Replaced array iteration with a for...of loop for more robust type safety.
+            let touchEnded = false;
+            for (const t of Array.from(e.changedTouches)) {
+                if (t.identifier === draggedTouchId) {
+                    touchEnded = true;
+                    break;
+                }
+            }
+
             if (touchEnded) {
                 setDraggedNodeId(null);
                 setDraggedTouchId(null);
