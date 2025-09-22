@@ -24,7 +24,7 @@ export interface SceneSettings {
     objects: SceneObjectSettings[];
 }
 
-export type NodeType = 'INPUT' | 'TEXT_INPUT' | 'COMBINE' | 'SCENE' | 'ANALYZE' | 'STYLE_EXTRACTOR' | 'DETAIL';
+export type NodeType = 'INPUT' | 'TEXT_INPUT' | 'COMBINE' | 'SCENE' | 'ANALYZE' | 'STYLE_EXTRACTOR' | 'DETAIL' | 'ENHANCE_PROMPT';
 
 export type BlendMode = 'ADD' | 'SUBTRACT' | 'REFERENCE' | 'COMPOSE' | 'OFF';
 

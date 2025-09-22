@@ -1,7 +1,14 @@
 import { GoogleGenAI, Modality, Type, GenerateContentResponse } from "@google/genai";
 import { SceneSettings, NodeData, NodeOutput } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+const apiKey = process.env.API_KEY;
+
+if (!apiKey || apiKey === "undefined") {
+    // Isto fornece uma mensagem de erro mais útil ao utilizador se a variável de ambiente não estiver definida.
+    throw new Error("A chave da API não foi configurada. Verifique se a variável de ambiente VITE_API_KEY está definida nas configurações do seu projeto na Vercel e faça um novo 'deploy'. O valor não deve estar em falta.");
+}
+
+const ai = new GoogleGenAI({ apiKey });
 
 // Utility to convert a base64 data URL to a GenerativePart
 const fileToGenerativePart = (fileSrc: string, mimeType: string) => {
@@ -64,6 +71,27 @@ export const analyzeImage = async (prompt: string, imageSrc: string, imageMimeTy
         model: 'gemini-2.5-flash',
         contents: { parts: [{ text: prompt }, imagePart] },
     });
+    return response.text;
+};
+
+export const enhancePrompt = async (originalText: string, instruction: string): Promise<string> => {
+    if (!originalText || !instruction) {
+        throw new Error("São necessários o texto original e uma instrução de modificação.");
+    }
+
+    const prompt = `A sua tarefa é refinar um texto para ser usado como uma instrução para uma IA de geração de imagens.
+    
+Texto Original: "${originalText}"
+
+Instrução de Refinamento: "${instruction}"
+
+Com base na instrução, reescreva o texto original. Produza APENAS o texto refinado final.`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: { parts: [{ text: prompt }] },
+    });
+
     return response.text;
 };
 

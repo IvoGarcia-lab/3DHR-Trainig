@@ -14,7 +14,7 @@ export const getConnectorPosition = (node: NodeData, connectorId: string | numbe
     }
 
     // Handle inputs
-    if (connectorId === 'prompt') {
+    if (connectorId === 'prompt' || connectorId === 'text') {
         return {
             x: node.position.x + node.width / 2,
             y: node.position.y

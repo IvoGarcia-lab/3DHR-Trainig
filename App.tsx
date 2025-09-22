@@ -167,6 +167,7 @@ const App: React.FC = () => {
         switch(node.type) {
             case 'ANALYZE':
             case 'STYLE_EXTRACTOR':
+            case 'ENHANCE_PROMPT':
                 return !!node.output.text;
             case 'TEXT_INPUT':
             case 'COMBINE':
@@ -252,6 +253,7 @@ const App: React.FC = () => {
         if (direction === 'out') {
             switch (node.type) {
                 case 'STYLE_EXTRACTOR':
+                case 'ENHANCE_PROMPT':
                     return 'text';
                 case 'ANALYZE':
                     if (connectorId === 'text') return 'text';
@@ -275,6 +277,8 @@ const App: React.FC = () => {
                     if (connectorId === 'prompt') return 'text';
                     if (typeof connectorId === 'number') return 'image';
                     return null;
+                case 'ENHANCE_PROMPT':
+                    return connectorId === 'text' ? 'text' : null;
                 case 'ANALYZE':
                 case 'STYLE_EXTRACTOR':
                 case 'SCENE':
@@ -341,7 +345,7 @@ const App: React.FC = () => {
         });
     
         // 2. Process text inputs from connectors
-        const textEdges = edges.filter(e => e.toNode === nodeId && e.toConnector === 'prompt');
+        const textEdges = edges.filter(e => e.toNode === nodeId && (e.toConnector === 'prompt' || e.toConnector === 'text'));
         textEdges.forEach(edge => {
             const sourceNode = allNodes.find(n => n.id === edge.fromNode);
             if (!sourceNode) return;
@@ -349,8 +353,8 @@ const App: React.FC = () => {
             const textOutput = sourceNode.type === 'TEXT_INPUT' ? sourceNode.prompt : sourceNode.output?.text;
 
             if (textOutput) {
-                if (sourceNode.type === 'TEXT_INPUT') {
-                    // Text from TEXT_INPUT is a primary subject directive
+                if (sourceNode.type === 'TEXT_INPUT' || sourceNode.type === 'ENHANCE_PROMPT') {
+                    // Text from TEXT_INPUT or ENHANCE_PROMPT is a primary subject directive
                     textSubjectDirectives.push(textOutput);
                 } else {
                     // Text from STYLE_EXTRACTOR or ANALYZE is a style directive
@@ -439,7 +443,7 @@ const App: React.FC = () => {
                 continue;
             }
 
-            const isProcessingNode = ['COMBINE', 'ANALYZE', 'SCENE', 'STYLE_EXTRACTOR', 'TEXT_INPUT', 'DETAIL'].includes(node.type);
+            const isProcessingNode = ['COMBINE', 'ANALYZE', 'SCENE', 'STYLE_EXTRACTOR', 'TEXT_INPUT', 'DETAIL', 'ENHANCE_PROMPT'].includes(node.type);
             
             if (!isProcessingNode) {
                 continue;
@@ -481,6 +485,18 @@ const App: React.FC = () => {
                         
                         const text = await geminiService.extractStyle(image.src, image.mimeType, node.styleIntensity ?? 1.0);
                         result = { output: { text } };
+                        break;
+                    }
+                    case 'ENHANCE_PROMPT': {
+                        const textEdge = inputEdges.find(e => e.toConnector === 'text');
+                        if (!textEdge) throw new Error("A entrada de texto não está conectada.");
+                        const sourceNode = currentNodesState.find(n => n.id === textEdge.fromNode);
+                        const inputText = sourceNode?.type === 'TEXT_INPUT' ? sourceNode.prompt : sourceNode?.output?.text;
+                        if (!inputText) throw new Error("O nó de entrada não tem texto.");
+                        if (!node.prompt || !node.prompt.trim()) throw new Error("Forneça uma instrução de refinamento.");
+    
+                        const enhancedText = await geminiService.enhancePrompt(inputText, node.prompt);
+                        result = { output: { text: enhancedText } };
                         break;
                     }
                     case 'COMBINE': {
@@ -576,6 +592,7 @@ const App: React.FC = () => {
           STYLE_EXTRACTOR: 'Extrator de Estilo',
           SCENE: 'Nó de Cena',
           DETAIL: 'Nó de Detalhe',
+          ENHANCE_PROMPT: 'Refinador de Texto',
         };
 
         const newNode: NodeData = {
@@ -633,6 +650,10 @@ const App: React.FC = () => {
                 newNode.isMasking = false;
                 newNode.brushSize = 40;
                 break;
+            case 'ENHANCE_PROMPT':
+              newNode.height = 300;
+              newNode.prompt = "";
+              break;
         }
 
         setNodes(nds => [...nds.map(n => ({...n, selected: false})), newNode]);
@@ -809,7 +830,8 @@ const App: React.FC = () => {
         if (!fromType || !toType || fromType !== toType) return;
 
         if (toType === 'image' && edges.some(edge => edge.toNode === toNodeId && edge.toConnector === toConnectorId)) return;
-        
+        if (toType === 'text' && edges.some(edge => edge.toNode === toNodeId && edge.toConnector === toConnectorId)) return;
+
         const newEdge: Edge = {
             id: `${fromNode.id}-${connectingFrom.connectorId}-to-${toNode.id}-${toConnectorId}-${Date.now()}`,
             fromNode: fromNode.id,
@@ -910,25 +932,28 @@ const App: React.FC = () => {
     
     const getNodeInputConnectors = (node: NodeData, allEdges: Edge[]) => {
         let imageInputs: number[] = [];
-        let promptInput: 'prompt' | null = null;
+        let textInput: 'prompt' | 'text' | null = null;
     
         switch (node.type) {
             case 'COMBINE':
                 const connectedInputs = allEdges.filter(e => e.toNode === node.id && typeof e.toConnector === 'number').length;
                 imageInputs = [...Array(connectedInputs + 1).keys()];
-                promptInput = 'prompt';
+                textInput = 'prompt';
                 break;
             case 'ANALYZE':
             case 'STYLE_EXTRACTOR':
             case 'DETAIL':
                 imageInputs = [0];
                 break;
+            case 'ENHANCE_PROMPT':
+                textInput = 'text';
+                break;
             case 'SCENE':
                 const connectedSceneInputs = allEdges.filter(e => e.toNode === node.id).length;
                 imageInputs = [...Array(connectedSceneInputs + 1).keys()];
                 break;
         }
-        return { imageInputs, promptInput };
+        return { imageInputs, textInput };
     }
 
     const findSnapTarget = (cursorPos: Point): { nodeId: string; connectorId: string | number } | null => {
@@ -946,14 +971,17 @@ const App: React.FC = () => {
         for (const node of nodes) {
             if (node.id === connectingFrom.nodeId) continue;
     
-            const { imageInputs, promptInput } = getNodeInputConnectors(node, edges);
-            const potentialConnectors = promptInput ? [...imageInputs, promptInput] : imageInputs;
+            const { imageInputs, textInput } = getNodeInputConnectors(node, edges);
+            const potentialConnectors: (string | number)[] = [...imageInputs];
+            if (textInput) {
+                potentialConnectors.push(textInput);
+            }
 
             for (const connectorId of potentialConnectors) {
                 const toType = getPortType(node, connectorId, 'in');
                 if (fromType === toType) {
-                    // Prevent connecting to an already occupied image port
-                    if (toType === 'image' && edges.some(e => e.toNode === node.id && e.toConnector === connectorId)) {
+                    // Prevent connecting to an already occupied port
+                    if (edges.some(e => e.toNode === node.id && e.toConnector === connectorId)) {
                         continue;
                     }
                     const pos = getConnectorPosition(node, connectorId, 'in', edges);
@@ -1055,7 +1083,8 @@ const App: React.FC = () => {
             e.preventDefault();
             // Fix: Replaced array iteration with a for...of loop for more robust type safety.
             let touch: React.Touch | undefined;
-            for (const t of Array.from(e.touches)) {
+            // FIX: Add type assertion to resolve error where loop variable `t` was of type `unknown`.
+            for (const t of Array.from(e.touches) as React.Touch[]) {
               if (t.identifier === draggedTouchId) {
                 touch = t;
                 break;
@@ -1121,7 +1150,8 @@ const App: React.FC = () => {
         if (draggedTouchId !== null) {
             // Fix: Replaced array iteration with a for...of loop for more robust type safety.
             let touchEnded = false;
-            for (const t of Array.from(e.changedTouches)) {
+            // FIX: Add type assertion to resolve error where loop variable `t` was of type `unknown`.
+            for (const t of Array.from(e.changedTouches) as React.Touch[]) {
                 if (t.identifier === draggedTouchId) {
                     touchEnded = true;
                     break;

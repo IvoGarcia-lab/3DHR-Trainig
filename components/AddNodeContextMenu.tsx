@@ -1,6 +1,6 @@
 import React from 'react';
 import { NodeType, Point } from '../types';
-import { BeakerIcon, CameraIcon, CubeIcon, MagicWandIcon, PaintBrushIcon, SparklesIcon, TextIcon } from './icons';
+import { BeakerIcon, CameraIcon, CubeIcon, MagicWandIcon, PaintBrushIcon, SparklesIcon, TextIcon, BookOpenIcon } from './icons';
 
 interface AddNodeContextMenuProps {
   position: Point;
@@ -11,6 +11,7 @@ interface AddNodeContextMenuProps {
 const nodeOptions: { type: NodeType; label: string; icon: React.FC<any> }[] = [
     { type: 'INPUT', label: 'Nó de Entrada', icon: CameraIcon },
     { type: 'TEXT_INPUT', label: 'Nó de Texto', icon: TextIcon },
+    { type: 'ENHANCE_PROMPT', label: 'Refinador de Texto', icon: BookOpenIcon },
     { type: 'COMBINE', label: 'Nó de Combinação', icon: MagicWandIcon },
     { type: 'ANALYZE', label: 'Nó de Análise', icon: BeakerIcon },
     { type: 'STYLE_EXTRACTOR', label: 'Extrair Estilo', icon: PaintBrushIcon },

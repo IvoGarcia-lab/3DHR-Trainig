@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 // Fix: Import NodeType to resolve the 'Cannot find name' error.
 import { NodeData, Edge, NodeType, CombineInputConfig, BlendMode } from '../types';
 import {
-  BeakerIcon, CameraIcon, CloseIcon, CogIcon, CubeIcon, MagicWandIcon, PlayIcon, SparklesIcon, UploadIcon, PaintBrushIcon, TextIcon
+  BeakerIcon, CameraIcon, CloseIcon, CogIcon, CubeIcon, MagicWandIcon, PlayIcon, SparklesIcon, UploadIcon, PaintBrushIcon, TextIcon, BookOpenIcon
 } from './icons';
 // Fix: Import getConnectorPosition to resolve reference error.
 import { getConnectorPosition } from '../utils';
@@ -36,6 +36,7 @@ const nodeTypeIcons: { [key in NodeType]: React.FC<React.SVGProps<SVGSVGElement>
     SCENE: CubeIcon,
     STYLE_EXTRACTOR: PaintBrushIcon,
     DETAIL: SparklesIcon,
+    ENHANCE_PROMPT: BookOpenIcon,
 };
 
 const NodeComponent: React.FC<NodeComponentProps> = ({
@@ -149,15 +150,19 @@ const NodeComponent: React.FC<NodeComponentProps> = ({
         inputs = [0];
         outputs = [0];
         break;
+      case 'ENHANCE_PROMPT':
+        inputs = ['text'];
+        outputs = ['text'];
+        break;
     }
     
     const imageInputs = inputs.filter(id => typeof id === 'number');
-    const promptInput = inputs.find(id => id === 'prompt');
+    const textInput = inputs.find(id => id === 'prompt' || id === 'text');
 
-    return { imageInputs, promptInput, outputs };
+    return { imageInputs, textInput: textInput as ('prompt' | 'text' | undefined), outputs };
   };
 
-  const { imageInputs, promptInput, outputs } = getConnectorElements();
+  const { imageInputs, textInput, outputs } = getConnectorElements();
   
   const hasImageInputs = edges.some(e => e.toNode === node.id && typeof e.toConnector === 'number');
 
@@ -618,6 +623,26 @@ const NodeComponent: React.FC<NodeComponentProps> = ({
             </div>
         );
       }
+      case 'ENHANCE_PROMPT':
+        return (
+          <div className="p-2 flex-grow flex flex-col min-h-0 gap-2">
+            <textarea
+              value={node.prompt || ''}
+              onChange={(e) => onUpdateNode(node.id, { prompt: e.target.value })}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              placeholder="Instrução de refinamento... (ex: torná-lo mais cinematográfico)"
+              className="w-full p-2 bg-gray-900/50 rounded-md placeholder-gray-400 text-sm resize-none h-16 flex-shrink-0"
+            />
+            <div className="flex-grow bg-gray-900/50 rounded-md p-2 overflow-y-auto text-sm text-gray-300 min-h-0">
+              {node.output?.text ? (
+                <p className="whitespace-pre-wrap break-words">{node.output.text}</p>
+              ) : (
+                <span className="text-gray-500">O texto refinado aparecerá aqui. Conecte uma entrada de texto e execute.</span>
+              )}
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -654,7 +679,7 @@ const NodeComponent: React.FC<NodeComponentProps> = ({
              {node.type === 'SCENE' && 
                 <button onMouseDown={(e) => { e.stopPropagation(); onOpenSceneSettings(node.id)}} onTouchStart={(e) => e.stopPropagation()} className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"><CogIcon className="w-5 h-5" /></button>
              }
-            {(node.type === 'COMBINE' || node.type === 'ANALYZE' || node.type === 'SCENE' || node.type === 'STYLE_EXTRACTOR' || node.type === 'TEXT_INPUT' || node.type === 'DETAIL') && 
+            {(node.type === 'COMBINE' || node.type === 'ANALYZE' || node.type === 'SCENE' || node.type === 'STYLE_EXTRACTOR' || node.type === 'TEXT_INPUT' || node.type === 'DETAIL' || node.type === 'ENHANCE_PROMPT') && 
                 <button onMouseDown={(e) => { e.stopPropagation(); onRunNode(node.id); }} onTouchStart={(e) => e.stopPropagation()} disabled={node.isProcessing || (node.type === 'TEXT_INPUT' && (!node.prompt || node.prompt.trim() === ''))} className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed p-1 rounded-full hover:bg-gray-700 transition-colors"><PlayIcon className="w-5 h-5" /></button>
             }
              <button onMouseDown={(e) => { e.stopPropagation(); onDeleteNode(node.id)}} onTouchStart={(e) => e.stopPropagation()} className="text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-gray-700 transition-colors"><CloseIcon className="w-5 h-5" /></button>
@@ -715,9 +740,10 @@ const NodeComponent: React.FC<NodeComponentProps> = ({
             />
            )
         })}
-        {promptInput && (() => {
-            const isSnapped = snapTarget?.nodeId === node.id && snapTarget?.connectorId === 'prompt';
-            const isConnected = edges.some(e => e.toNode === node.id && e.toConnector === 'prompt');
+        {textInput && (() => {
+            const connectorId = textInput;
+            const isSnapped = snapTarget?.nodeId === node.id && snapTarget?.connectorId === connectorId;
+            const isConnected = edges.some(e => e.toNode === node.id && e.toConnector === connectorId);
             
             let connectorClasses = 'absolute w-5 h-5 border-2 border-gray-800 rounded-full transition-all duration-150 pointer-events-auto ';
             let title = "Entrada: Instrução";
@@ -733,20 +759,20 @@ const NodeComponent: React.FC<NodeComponentProps> = ({
             
             return (
                 <div
-                    key={`in-prompt`}
+                    key={`in-${connectorId}`}
                     className={connectorClasses}
                     style={{ left: '50%', transform: 'translateX(-50%)', top: '-10px' }}
                     title={title}
                     onMouseDown={(e) => { 
                         e.stopPropagation(); 
                         if (isConnected) {
-                            onDisconnectAndReconnect(e, node.id, 'prompt');
+                            onDisconnectAndReconnect(e, node.id, connectorId);
                         }
                     }}
                     onTouchStart={(e) => {
                         e.stopPropagation();
                         if (isConnected) {
-                            onDisconnectAndReconnect(e, node.id, 'prompt');
+                            onDisconnectAndReconnect(e, node.id, connectorId);
                         }
                     }}
                 />
