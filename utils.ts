@@ -59,3 +59,33 @@ export const isPointInNode = (point: Point, node: NodeData): boolean => {
         point.y <= node.position.y + node.height
     );
 };
+
+export const parseGeminiError = (error: any): string => {
+    if (error instanceof Error) {
+        let message = error.message;
+        // The message often looks like "ApiError: { ... JSON ... }"
+        if (message.includes('{') && message.includes('}')) {
+             try {
+                const jsonPart = message.substring(message.indexOf('{'));
+                const errorObj = JSON.parse(jsonPart);
+
+                if (errorObj.error) {
+                    const { code, message: apiMessage, status } = errorObj.error;
+                    if (code === 429 || status === "RESOURCE_EXHAUSTED") {
+                        const retryDetail = errorObj.error.details?.find((d: any) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
+                        if (retryDetail?.retryDelay) {
+                            return `Limite de utilização da API excedido. Tente novamente em alguns segundos. (${retryDetail.retryDelay})`;
+                        }
+                        return "Limite de utilização da API excedido. Verifique o seu plano e tente novamente mais tarde.";
+                    }
+                    return `Erro da API: ${apiMessage || status || 'Erro desconhecido.'}`;
+                }
+            } catch (e) {
+                // Not a JSON error message, return the original message but keep it clean.
+                return message.length > 200 ? message.substring(0, 200) + '...' : message;
+            }
+        }
+        return message;
+    }
+    return String(error) || "Ocorreu um erro desconhecido.";
+};

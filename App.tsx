@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { NodeData, Edge, Point, NodeType, SceneSettings, NodeOutput, CombineInputConfig, BlendMode } from './types';
 import { defaultNodes, defaultEdges } from './defaultLayout';
 import * as geminiService from './services/geminiService';
-import { getConnectorPosition, isPointInNode } from './utils';
+import { getConnectorPosition, isPointInNode, parseGeminiError } from './utils';
 import NodeComponent from './components/NodeComponent';
 import EdgeComponent from './components/EdgeComponent';
 import Header from './components/Header';
@@ -546,9 +546,11 @@ const App: React.FC = () => {
 
             } catch (error: any) {
                 console.error(`Erro ao executar o nó "${node.label}":`, error);
-                const errorMessage = (error instanceof Error ? error.message : String(error)) || 'Ocorreu um erro desconhecido.';
+                const errorMessage = parseGeminiError(error);
                 updateNode(nodeId, { isProcessing: false, errorMessage: errorMessage });
-                setTimeout(() => updateNode(nodeId, { errorMessage: undefined }), 5000);
+                // Make quota errors stay visible longer
+                const timeout = errorMessage.includes("Limite de utilização") ? 10000 : 5000;
+                setTimeout(() => updateNode(nodeId, { errorMessage: undefined }), timeout);
                 return; 
             }
         }
