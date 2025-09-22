@@ -221,7 +221,7 @@ export const combineImages = async (prompt: string, images: {src: string, mimeTy
         : imageParts;
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-preview-image',
+        model: 'gemini-2.5-flash-image-preview',
         contents: { parts: contentParts },
         config: {
             responseModalities: [Modality.IMAGE, Modality.TEXT],
@@ -238,7 +238,7 @@ export const refineImage = async (prompt: string, image: {src: string, mimeType:
     const textPart = { text: `Instruções: ${prompt}. Edite a imagem original, aplicando alterações APENAS às áreas não pretas da máscara fornecida.` };
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-preview-image',
+        model: 'gemini-2.5-flash-image-preview',
         contents: {
             parts: [
                 textPart,
@@ -278,7 +278,7 @@ export const renderScene = async (settings: SceneSettings, objectNodes: NodeData
     const fullPrompt = promptParts.join(' ');
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-preview-image',
+        model: 'gemini-2.5-flash-image-preview',
         contents: { parts: [{ text: fullPrompt }, ...imageParts] },
         config: {
             responseModalities: [Modality.IMAGE, Modality.TEXT],
