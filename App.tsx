@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import './App.css';
 import { NodeData, Edge, Point, NodeType, SceneSettings, NodeOutput, CombineInputConfig, BlendMode } from './types';
 import { defaultNodes, defaultEdges } from './defaultLayout';
 import * as geminiService from './services/geminiService';
@@ -759,14 +758,22 @@ const App: React.FC = () => {
         const edgeToDisconnect = edges.find(edge => edge.toNode === toNodeId && edge.toConnector === toConnectorId);
         if (!edgeToDisconnect) return;
 
+        // Fix: Resolve property access errors on 'unknown' by safely extracting event coordinates.
+        // This refactor helps TypeScript correctly infer the type from the event union
+        // by first assigning the relevant object (either the event or a touch point) to a variable.
+        let point: { clientX: number, clientY: number } | undefined;
         if ('touches' in e) {
             // Touch event
             if (e.touches.length > 0) {
-                setMousePos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+                point = e.touches[0];
             }
         } else {
             // Mouse event
-            setMousePos({ x: e.clientX, y: e.clientY });
+            point = e;
+        }
+
+        if (point) {
+            setMousePos({ x: point.clientX, y: point.clientY });
         }
 
         setConnectingFrom({
@@ -1048,7 +1055,8 @@ const App: React.FC = () => {
     const handleTouchMove = (e: React.TouchEvent) => {
         if (draggedNodeId && draggedTouchId !== null) {
             e.preventDefault();
-            const touch = Array.from(e.touches).find(t => t.identifier === draggedTouchId);
+            // Fix: Explicitly type 't' as React.Touch to resolve property access errors on 'unknown'.
+            const touch = Array.from(e.touches).find((t: React.Touch) => t.identifier === draggedTouchId);
             if (touch) {
                 const newPos = { x: nodeDragOffset.x + (touch.clientX / zoom), y: nodeDragOffset.y + (touch.clientY / zoom) };
                 updateNode(draggedNodeId, { position: newPos });
@@ -1106,7 +1114,8 @@ const App: React.FC = () => {
         }
 
         if (draggedTouchId !== null) {
-            const touchEnded = Array.from(e.changedTouches).some(t => t.identifier === draggedTouchId);
+            // Fix: Explicitly type 't' as React.Touch to resolve property access errors on 'unknown'.
+            const touchEnded = Array.from(e.changedTouches).some((t: React.Touch) => t.identifier === draggedTouchId);
             if (touchEnded) {
                 setDraggedNodeId(null);
                 setDraggedTouchId(null);
